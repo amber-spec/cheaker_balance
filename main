@@ -1,0 +1,226 @@
+import { useState, useEffect } from 'react';
+
+export default function App() {
+  // Mock data for EVM wallets
+  const [wallets, setWallets] = useState([
+    { id: 1, address: '0x1234...abcd', balance: null, loading: false },
+    { id: 2, address: '0x5678...efgh', balance: null, loading: false },
+    { id: 3, address: '0x90ab...ijkl', balance: null, loading: false },
+  ]);
+
+  const [newAddress, setNewAddress] = useState('');
+  const [error, setError] = useState('');
+
+  // Simulate fetching balances from an EVM blockchain (e.g., Ethereum, BSC)
+  const fetchBalance = async (address) => {
+    // In a real application, this would call a blockchain explorer API or use web3 providers
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Random balance between 0.1 and 5 ETH
+        const randomBalance = (Math.random() * 5 + 0.1).toFixed(4);
+        resolve(randomBalance);
+      }, 1000);
+    });
+  };
+
+  const handleFetchBalances = async () => {
+    const updatedWallets = [...wallets];
+
+    for (let i = 0; i < updatedWallets.length; i++) {
+      updatedWallets[i].loading = true;
+      try {
+        const balance = await fetchBalance(updatedWallets[i].address);
+        updatedWallets[i].balance = balance;
+        updatedWallets[i].loading = false;
+      } catch (err) {
+        console.error(`Error fetching balance for ${updatedWallets[i].address}:`, err);
+        updatedWallets[i].balance = 'Error';
+        updatedWallets[i].loading = false;
+      }
+    }
+
+    setWallets(updatedWallets);
+  };
+
+  const handleAddWallet = () => {
+    if (!newAddress.trim()) {
+      setError('Please enter a wallet address');
+      return;
+    }
+
+    // Simple validation for EVM address format (starts with 0x and has 42 characters)
+    if (!/^0x[a-fA-F0-9]{40}$/.test(newAddress)) {
+      setError('Invalid EVM wallet address format');
+      return;
+    }
+
+    // Check if address already exists
+    if (wallets.some(wallet => wallet.address.toLowerCase() === newAddress.toLowerCase())) {
+      setError('This wallet is already in the list');
+      return;
+    }
+
+    const newWallet = {
+      id: Date.now(),
+      address: newAddress,
+      balance: null,
+      loading: false
+    };
+
+    setWallets([...wallets, newWallet]);
+    setNewAddress('');
+    setError('');
+  };
+
+  const handleRemoveWallet = (id) => {
+    setWallets(wallets.filter(wallet => wallet.id !== id));
+  };
+
+  useEffect(() => {
+    // Fetch balances on component mount
+    handleFetchBalances();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6">
+      <div className="max-w-4xl mx-auto">
+        <header className="text-center mb-10">
+          <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            EVM Wallet Balance Checker
+          </h1>
+          <p className="text-gray-300">Check balances for your Ethereum Virtual Machine compatible wallets</p>
+        </header>
+
+        <div className="bg-gray-800 rounded-xl shadow-lg p-6 mb-8 border border-gray-700">
+          <h2 className="text-2xl font-semibold mb-4">Your Wallets</h2>
+          
+          <div className="flex flex-col md:flex-row gap-3 mb-6">
+            <input
+              type="text"
+              value={newAddress}
+              onChange={(e) => setNewAddress(e.target.value)}
+              placeholder="Enter EVM wallet address (0x...)"
+              className="flex-grow px-4 py-2 rounded-md bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400"
+            />
+            <button
+              onClick={handleAddWallet}
+              className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-md hover:from-blue-600 hover:to-purple-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+            >
+              Add Wallet
+            </button>
+          </div>
+          
+          {error && (
+            <div className="mb-4 p-3 bg-red-900/30 border border-red-800 text-red-200 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="pb-3 px-2">Wallet Address</th>
+                  <th className="pb-3 px-2">Balance (ETH)</th>
+                  <th className="pb-3 px-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {wallets.map((wallet) => (
+                  <tr key={wallet.id} className="border-b border-gray-700 last:border-0 hover:bg-gray-700/30 transition-colors">
+                    <td className="py-3 px-2 font-mono text-sm">{wallet.address}</td>
+                    <td className="py-3 px-2">
+                      {wallet.loading ? (
+                        <span className="animate-pulse">Loading...</span>
+                      ) : wallet.balance === null ? (
+                        <span className="text-gray-400">Not loaded</span>
+                      ) : wallet.balance === 'Error' ? (
+                        <span className="text-red-400">Error</span>
+                      ) : (
+                        `${wallet.balance} ETH`
+                      )}
+                    </td>
+                    <td className="py-3 px-2">
+                      <button
+                        onClick={() => {
+                          const index = wallets.findIndex(w => w.id === wallet.id);
+                          const updatedWallets = [...wallets];
+                          updatedWallets[index].loading = true;
+                          setWallets(updatedWallets);
+                          
+                          fetchBalance(wallet.address)
+                            .then(balance => {
+                              const updatedWallets = [...wallets];
+                              updatedWallets[index].balance = balance;
+                              updatedWallets[index].loading = false;
+                              setWallets(updatedWallets);
+                            })
+                            .catch(err => {
+                              console.error(`Error fetching balance for ${wallet.address}:`, err);
+                              const updatedWallets = [...wallets];
+                              updatedWallets[index].balance = 'Error';
+                              updatedWallets[index].loading = false;
+                              setWallets(updatedWallets);
+                            });
+                        }}
+                        disabled={wallet.loading}
+                        className={`mr-2 px-3 py-1 text-sm rounded-md ${
+                          wallet.loading 
+                            ? 'bg-gray-600 cursor-not-allowed' 
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        } transition-colors`}
+                      >
+                        {wallet.loading ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                      <button
+                        onClick={() => handleRemoveWallet(wallet.id)}
+                        className="px-3 py-1 text-sm rounded-md bg-red-600 hover:bg-red-700 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 flex justify-between items-center">
+            <button
+              onClick={handleFetchBalances}
+              disabled={wallets.some(wallet => wallet.loading)}
+              className={`px-5 py-2 rounded-md font-medium ${
+                wallets.some(wallet => wallet.loading)
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
+              } transition-colors`}
+            >
+              {wallets.some(wallet => wallet.loading) ? 'Refreshing All...' : 'Refresh All Balances'}
+            </button>
+            
+            <div className="text-sm text-gray-400">
+              Showing balances for {wallets.length} wallet{wallets.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-700">
+          <h2 className="text-2xl font-semibold mb-4">How It Works</h2>
+          <p className="text-gray-300 mb-4">
+            This demo app simulates checking balances of EVM-compatible wallets (like Ethereum, Binance Smart Chain, Polygon, etc.).
+            In a real implementation, you would connect to a blockchain explorer's API or use a Web3 provider like Alchemy or Infura.
+          </p>
+          <p className="text-gray-300">
+            The core functionality involves:
+          </p>
+          <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-300">
+            <li>Storing wallet addresses</li>
+            <li>Making requests to blockchain nodes</li>
+            <li>Parsing JSON-RPC responses</li>
+            <li>Formatting and displaying results</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
